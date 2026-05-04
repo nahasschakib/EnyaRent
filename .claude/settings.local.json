@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 15 pnpm dev)",
+      "Bash(pnpm dev *)",
+      "Read(//tmp/**)",
+      "Bash(taskkill /PID 15312 /F)",
+      "PowerShell(Stop-Process *)",
+      "Bash(npx tsx *)",
+      "Bash(node --import tsx/esm scripts/fix-sectors.ts)",
+      "Bash(npx --yes tsx scripts/fix-sectors.ts)",
+      "Bash(npx prisma *)",
+      "Bash(npx --yes kill-port 3000)",
+      "Bash(npx --yes kill-port 3001)",
+      "Bash(git remote *)",
+      "Bash(git add *)"
+    ]
+  }
+}

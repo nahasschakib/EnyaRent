@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "assets": "الأصول",
+    "bookings": "الحجوزات",
+    "customers": "العملاء",
+    "contracts": "العقود",
+    "payments": "المدفوعات",
+    "invoices": "الفواتير",
+    "maintenance": "الصيانة",
+    "tickets": "التذاكر",
+    "calendar": "التقويم",
+    "analytics": "التحليلات",
+    "settings": "الإعدادات",
+    "notifications": "الإشعارات",
+    "profile": "الملف الشخصي",
+    "logout": "تسجيل الخروج"
+  },
+  "sectors": {
+    "real_estate": "العقارات",
+    "vehicle": "المركبات",
+    "hospitality": "الضيافة",
+    "equipment": "المعدات"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "signUp": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "continueWithGoogle": "المتابعة مع Google",
+    "noAccount": "ليس لديك حساب؟",
+    "hasAccount": "لديك حساب بالفعل؟"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "create": "إنشاء",
+    "search": "بحث",
+    "filter": "تصفية",
+    "export": "تصدير",
+    "loading": "جارٍ التحميل...",
+    "noResults": "لا توجد نتائج",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "previous": "السابق"
+  },
+  "status": {
+    "active": "نشط",
+    "pending": "قيد الانتظار",
+    "confirmed": "مؤكد",
+    "completed": "مكتمل",
+    "cancelled": "ملغى",
+    "draft": "مسودة",
+    "signed": "موقع",
+    "archived": "مؤرشف",
+    "available": "متاح",
+    "reserved": "محجوز",
+    "maintenance": "صيانة",
+    "outOfService": "خارج الخدمة"
+  }
+}

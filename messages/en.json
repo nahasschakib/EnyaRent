@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "assets": "Assets",
+    "bookings": "Bookings",
+    "customers": "Customers",
+    "contracts": "Contracts",
+    "payments": "Payments",
+    "invoices": "Invoices",
+    "maintenance": "Maintenance",
+    "tickets": "Tickets",
+    "calendar": "Calendar",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "sectors": {
+    "real_estate": "Real Estate",
+    "vehicle": "Vehicles",
+    "hospitality": "Hospitality",
+    "equipment": "Equipment"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "continueWithGoogle": "Continue with Google",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "loading": "Loading...",
+    "noResults": "No results",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous"
+  },
+  "status": {
+    "active": "Active",
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "draft": "Draft",
+    "signed": "Signed",
+    "archived": "Archived",
+    "available": "Available",
+    "reserved": "Reserved",
+    "maintenance": "Maintenance",
+    "outOfService": "Out of service"
+  }
+}

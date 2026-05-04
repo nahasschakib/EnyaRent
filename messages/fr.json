@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "assets": "Assets",
+    "bookings": "Reservations",
+    "customers": "Clients",
+    "contracts": "Contrats",
+    "payments": "Paiements",
+    "invoices": "Factures",
+    "maintenance": "Maintenance",
+    "tickets": "Tickets",
+    "calendar": "Calendrier",
+    "analytics": "Analytique",
+    "settings": "Parametres",
+    "notifications": "Notifications",
+    "profile": "Profil",
+    "logout": "Deconnexion"
+  },
+  "sectors": {
+    "real_estate": "Immobilier",
+    "vehicle": "Vehicules",
+    "hospitality": "Hotellerie",
+    "equipment": "Equipements"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signUp": "Creer un compte",
+    "email": "Email",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublie ?",
+    "continueWithGoogle": "Continuer avec Google",
+    "noAccount": "Pas encore de compte ?",
+    "hasAccount": "Deja un compte ?"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Creer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "export": "Exporter",
+    "loading": "Chargement...",
+    "noResults": "Aucun resultat",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Precedent"
+  },
+  "status": {
+    "active": "Actif",
+    "pending": "En attente",
+    "confirmed": "Confirme",
+    "completed": "Termine",
+    "cancelled": "Annule",
+    "draft": "Brouillon",
+    "signed": "Signe",
+    "archived": "Archive",
+    "available": "Disponible",
+    "reserved": "Reserve",
+    "maintenance": "Maintenance",
+    "outOfService": "Hors service"
+  }
+}

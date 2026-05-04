@@ -1,0 +1,496 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  OWNER
+  CLIENT
+}
+
+enum AssetStatus {
+  AVAILABLE
+  RESERVED
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum Sector {
+  REAL_ESTATE
+  VEHICLE
+  HOSPITALITY
+  EQUIPMENT
+}
+
+enum BookingType {
+  NIGHTLY
+  DAILY
+  MONTHLY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  ARCHIVED
+}
+
+enum InspectionType {
+  ENTRY
+  EXIT
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  RENT
+  DEPOSIT
+  DEPOSIT_REFUND
+  SUBSCRIPTION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  COMPANY
+}
+
+// ─── Phase 1 Models ───────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("FREE")
+  logo      String?
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  users              User[]
+  auditLogs          AuditLog[]
+  assetTypes         AssetType[]
+  assets             Asset[]
+  customers          Customer[]
+  bookings           Booking[]
+  contracts          Contract[]
+  payments           Payment[]
+  invoices           Invoice[]
+  maintenanceTickets MaintenanceTicket[]
+  supportTickets     SupportTicket[]
+  ticketLabels       TicketLabel[]
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  emailVerified  Boolean   @default(false)
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  role           String    @default("CLIENT")
+  organizationId String?
+
+  organization        Organization?    @relation(fields: [organizationId], references: [id])
+  sessions            Session[]
+  accounts            Account[]
+  auditLogs           AuditLog[]
+  maintenanceReported MaintenanceTicket[] @relation("MaintenanceReporter")
+  maintenanceAssigned MaintenanceTicket[] @relation("MaintenanceAssignee")
+  ticketsReported     SupportTicket[]     @relation("TicketReporter")
+  ticketsAssigned     SupportTicket[]     @relation("TicketAssignee")
+  ticketComments      TicketComment[]
+  ticketActivity      TicketActivity[]
+  notifications       Notification[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?
+  userId         String
+  action         String
+  entity         String
+  entityId       String
+  oldValue       Json?
+  newValue       Json?
+  ip             String?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+}
+
+// ─── Phase 2 Models ───────────────────────────────────────────────────────────
+
+model AssetType {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  sector         Sector
+  icon           String?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  assets         Asset[]
+}
+
+model Asset {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?     @db.Text
+  assetTypeId    String
+  status         AssetStatus @default(AVAILABLE)
+  pricePerNight  Decimal?    @db.Decimal(10, 2)
+  pricePerDay    Decimal?    @db.Decimal(10, 2)
+  pricePerMonth  Decimal?    @db.Decimal(10, 2)
+  deposit        Decimal?    @db.Decimal(10, 2)
+  address        String?
+  city           String?
+  latitude       Float?
+  longitude      Float?
+  metadata       Json        @default("{}")
+  // Champs véhicule
+  immatriculation String?
+  vin             String?
+  marque          String?
+  modele          String?
+  annee           String?
+  couleur         String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization        Organization        @relation(fields: [organizationId], references: [id])
+  assetType           AssetType           @relation(fields: [assetTypeId], references: [id])
+  photos              AssetPhoto[]
+  bookings            Booking[]
+  maintenanceTickets  MaintenanceTicket[]
+  availabilityBlocks  AvailabilityBlock[]
+}
+
+model AssetPhoto {
+  id      String @id @default(cuid())
+  assetId String
+  url     String
+  order   Int    @default(0)
+
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model AvailabilityBlock {
+  id        String   @id @default(cuid())
+  assetId   String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  cin            String?
+  passportNumber String?
+  address        String?
+  type           CustomerType @default(INDIVIDUAL)
+  score          String?
+  licenseNumber  String?
+  licenseExpiry  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  guarantor      Guarantor?
+  bookings       Booking[]
+  payments       Payment[]
+  invoices       Invoice[]
+}
+
+model Guarantor {
+  id          String   @id @default(cuid())
+  customerId  String   @unique
+  name        String
+  cin         String?
+  phone       String?
+  address     String?
+  documentUrl String?
+
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  organizationId String
+  assetId        String
+  customerId     String
+  startDate      DateTime
+  endDate        DateTime
+  type           BookingType
+  status         BookingStatus @default(PENDING)
+  totalAmount    Decimal       @db.Decimal(10, 2)
+  depositAmount  Decimal?      @db.Decimal(10, 2)
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  asset          Asset         @relation(fields: [assetId], references: [id])
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  contract       Contract?
+  payments       Payment[]
+  invoices       Invoice[]
+}
+
+model Contract {
+  id               String         @id @default(cuid())
+  organizationId   String
+  bookingId        String         @unique
+  templateType     String
+  content          Json           @default("{}")
+  pdfUrl           String?
+  signedPdfUrl     String?
+  status           ContractStatus @default(DRAFT)
+  yousignRequestId String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  organization     Organization   @relation(fields: [organizationId], references: [id])
+  booking          Booking        @relation(fields: [bookingId], references: [id])
+  inspections      Inspection[]
+}
+
+model Inspection {
+  id           String         @id @default(cuid())
+  contractId   String
+  type         InspectionType
+  notes        String?        @db.Text
+  photos       Json           @default("[]")
+  signedBy     Json           @default("{}")
+  signatureUrl String?
+  createdAt    DateTime       @default(now())
+
+  contract     Contract       @relation(fields: [contractId], references: [id])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  organizationId String
+  bookingId      String?
+  customerId     String
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("MAD")
+  method         String?
+  status         PaymentStatus @default(PENDING)
+  type           PaymentType   @default(RENT)
+  dgatewayRef    String?
+  invoiceId      String?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  booking        Booking?      @relation(fields: [bookingId], references: [id])
+  customer       Customer      @relation(fields: [customerId], references: [id])
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  organizationId String
+  number         String
+  bookingId      String?
+  customerId     String
+  lines          Json          @default("[]")
+  totalHT        Decimal       @db.Decimal(10, 2)
+  tva            Decimal       @db.Decimal(10, 2)
+  totalTTC       Decimal       @db.Decimal(10, 2)
+  currency       String        @default("MAD")
+  status         InvoiceStatus @default(DRAFT)
+  pdfUrl         String?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  booking        Booking?      @relation(fields: [bookingId], references: [id])
+  customer       Customer      @relation(fields: [customerId], references: [id])
+}
+
+model MaintenanceTicket {
+  id             String            @id @default(cuid())
+  organizationId String
+  assetId        String
+  reportedById   String
+  assignedToId   String?
+  title          String
+  description    String?           @db.Text
+  status         MaintenanceStatus @default(OPEN)
+  priority       Priority          @default(MEDIUM)
+  cost           Decimal?          @db.Decimal(10, 2)
+  resolvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  asset          Asset             @relation(fields: [assetId], references: [id])
+  reportedBy     User              @relation("MaintenanceReporter", fields: [reportedById], references: [id])
+  assignedTo     User?             @relation("MaintenanceAssignee", fields: [assignedToId], references: [id])
+}
+
+model SupportTicket {
+  id             String         @id @default(cuid())
+  organizationId String
+  reportedById   String
+  assignedToId   String?
+  title          String
+  body           String         @db.Text
+  status         TicketStatus   @default(OPEN)
+  priority       Priority       @default(MEDIUM)
+  sector         Sector?
+  labels         Json           @default("[]")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  reportedBy     User            @relation("TicketReporter", fields: [reportedById], references: [id])
+  assignedTo     User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  comments       TicketComment[]
+  activity       TicketActivity[]
+}
+
+model TicketComment {
+  id          String        @id @default(cuid())
+  ticketId    String
+  authorId    String
+  body        String        @db.Text
+  attachments Json          @default("[]")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User          @relation(fields: [authorId], references: [id])
+}
+
+model TicketActivity {
+  id        String        @id @default(cuid())
+  ticketId  String
+  userId    String
+  action    String
+  metadata  Json          @default("{}")
+  createdAt DateTime      @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
+}
+
+model TicketLabel {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  color          String       @default("#64748B")
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  userId         String
+  organizationId String?
+  type           String
+  title          String
+  body           String
+  read           Boolean   @default(false)
+  link           String?
+  createdAt      DateTime  @default(now())
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
