@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const contractData = {
       booking:      contract.booking,
-      asset:        contract.booking.asset,
+      asset:        { ...contract.booking.asset, metadata: contract.booking.asset.metadata as Record<string, unknown> },
       customer:     contract.booking.customer,
       organization: org,
       generatedAt:  new Date(),

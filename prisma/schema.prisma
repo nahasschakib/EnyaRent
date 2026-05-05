@@ -12,10 +12,16 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
+  PROFESSIONAL
   ADMIN
   MANAGER
   OWNER
   CLIENT
+}
+
+enum OrganizationType {
+  PROFESSIONAL
+  PERSONAL
 }
 
 enum AssetStatus {
@@ -108,13 +114,18 @@ enum CustomerType {
 // ─── Phase 1 Models ───────────────────────────────────────────────────────────
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  plan      String   @default("FREE")
-  logo      String?
-  settings  Json     @default("{}")
-  createdAt DateTime @default(now())
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  plan        String           @default("FREE")
+  type        OrganizationType @default(PROFESSIONAL)
+  logo        String?
+  description String?
+  logoUrl     String?
+  coverUrl    String?
+  isPublic    Boolean          @default(true)
+  settings    Json             @default("{}")
+  createdAt   DateTime         @default(now())
 
   users              User[]
   auditLogs          AuditLog[]
@@ -238,6 +249,7 @@ model Asset {
   city           String?
   latitude       Float?
   longitude      Float?
+  isPublished    Boolean     @default(false)
   metadata       Json        @default("{}")
   // Champs véhicule
   immatriculation String?

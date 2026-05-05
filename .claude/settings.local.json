@@ -13,7 +13,15 @@
       "Bash(npx --yes kill-port 3000)",
       "Bash(npx --yes kill-port 3001)",
       "Bash(git remote *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git -C \"C:/Users/user/enyarent-app\" ls-files --others --ignored --exclude-standard)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(taskkill /PID 2908 /F)",
+      "Bash(node -e \"require\\('@aws-sdk/client-s3'\\); console.log\\('ok'\\)\")",
+      "Bash(node -e \"require\\('@aws-sdk/s3-request-presigner'\\); console.log\\('presigner ok'\\)\")",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\user\\\\enyarent-app\\\\src\\\\app\\\\api\\\\v1\\\\auth\\\\complete-signup\")",
+      "Bash(Out-Null)"
     ]
   }
 }

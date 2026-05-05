@@ -72,6 +72,12 @@ const navSections: NavSection[] = [
       { href: "/dashboard/tickets", labelKey: "tickets", icon: CircleDot },
     ],
   },
+  {
+    label: "Organisation",
+    items: [
+      { href: "/dashboard/settings", labelKey: "settings", icon: Settings },
+    ],
+  },
 ];
 
 const LOCALES = [

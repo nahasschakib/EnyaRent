@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# local upload storage (remplacé par Cloudflare R2)
+/public/uploads/*
+!/public/uploads/.gitkeep

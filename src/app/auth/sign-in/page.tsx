@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth-client";
+import { signIn, authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,22 +21,21 @@ export default function SignInPage() {
 
     setLoading(true);
     try {
-      const { error } = await signIn.email({
-        email,
-        password,
-        callbackURL: "/dashboard",
-      });
+      const { error } = await signIn.email({ email, password });
 
       if (error) {
         toast.error(
           error.message === "Invalid credentials"
             ? "Email ou mot de passe incorrect"
-            : error.message ?? "Erreur de connexion"
+            : (error.message ?? "Erreur de connexion")
         );
         return;
       }
 
-      router.push("/dashboard");
+      const { data: session } = await authClient.getSession();
+      const role = session?.user?.role;
+
+      router.push(role === "CLIENT" ? "/mon-espace" : "/dashboard");
       router.refresh();
     } catch {
       toast.error("Erreur de connexion");

@@ -7,7 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { ActionColumn, SortableColumn } from "@/components/column-helpers";
-import { Plus, Building2, Car, Hotel, Wrench } from "lucide-react";
+import { Plus, Building2, Car, Hotel, Wrench, Globe, EyeOff, Loader2 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 type Asset = {
@@ -15,12 +15,55 @@ type Asset = {
   name: string;
   city: string | null;
   status: string;
+  isPublished: boolean;
   pricePerMonth: string | null;
   pricePerNight: string | null;
   pricePerDay: string | null;
   assetType: { name: string; sector: string };
   photos: { url: string }[];
 };
+
+function PublishedToggle({ assetId, initial }: { assetId: string; initial: boolean }) {
+  const [published, setPublished] = useState(initial);
+  const [loading, setLoading] = useState(false);
+
+  async function toggle() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/assets/${assetId}/published`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublished: !published }),
+      });
+      if (res.ok) setPublished((p) => !p);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      title={published ? "Retirer de la vitrine" : "Publier sur la vitrine"}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+        published
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+          : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700"
+      )}
+    >
+      {loading ? (
+        <Loader2 size={11} className="animate-spin" />
+      ) : published ? (
+        <Globe size={11} />
+      ) : (
+        <EyeOff size={11} />
+      )}
+      {published ? "Publié" : "Masqué"}
+    </button>
+  );
+}
 
 const SECTOR_ICONS: Record<string, React.ElementType> = {
   REAL_ESTATE: Building2,
@@ -146,6 +189,13 @@ const columns: ColumnDef<Asset>[] = [
         </span>
       );
     },
+  },
+  {
+    id: "published",
+    header: "Vitrine",
+    cell: ({ row }) => (
+      <PublishedToggle assetId={row.original.id} initial={row.original.isPublished} />
+    ),
   },
   {
     id: "actions",
