@@ -22,12 +22,10 @@ export async function POST(req: NextRequest) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    const uniqueSlug = `${slug}-${Date.now()}`;
-
     const org = await db.organization.create({
       data: {
         name: name.trim(),
-        slug: uniqueSlug,
+        slug,
         plan: "FREE",
         settings: {},
       },

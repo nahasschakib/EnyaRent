@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       const org = await db.organization.create({
         data: {
           name: orgName,
-          slug: `${slug}-${Date.now()}`,
+          slug,
           plan: "FREE",
           type: "PROFESSIONAL",
           settings: {},
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       const org = await db.organization.create({
         data: {
           name: orgName,
-          slug: `${slug}-${Date.now()}`,
+          slug,
           plan: "FREE",
           type: "PERSONAL",
           settings: {},
