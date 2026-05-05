@@ -1,68 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { db } from "@/lib/db";
+import { writeFile, unlink, mkdir } from "fs/promises";
+import { join } from "path";
+import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
-import { randomUUID } from "crypto";
+import { db } from "@/lib/db";
 
-function createS3() {
-  return new S3Client({
-    region: "auto",
-    endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
-    credentials: {
-      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
-    },
-  });
-}
+const ALLOWED_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png":  "png",
+  "image/webp": "webp",
+};
+const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "assets");
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const userFromDb = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { organizationId: true, role: true },
+      select: { organizationId: true },
     });
     if (!userFromDb?.organizationId) {
-      return NextResponse.json({ error: "No organization" }, { status: 403 });
+      return NextResponse.json({ error: "Aucune organisation" }, { status: 403 });
     }
-    const organizationId = userFromDb.organizationId;
-    const { id: assetId } = await params;
 
-    const asset = await db.asset.findFirst({ where: { id: assetId, organizationId } });
-    if (!asset) return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+    const { id: assetId } = await params;
+    const asset = await db.asset.findFirst({
+      where: { id: assetId, organizationId: userFromDb.organizationId },
+      select: { id: true },
+    });
+    if (!asset) return NextResponse.json({ error: "Asset introuvable" }, { status: 404 });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
-    if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (!file) return NextResponse.json({ error: "Fichier manquant" }, { status: 400 });
 
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Le fichier doit être une image" }, { status: 400 });
+    const ext = ALLOWED_TYPES[file.type];
+    if (!ext) {
+      return NextResponse.json(
+        { error: "Type non supporté. Utilisez JPG, PNG ou WebP." },
+        { status: 400 }
+      );
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_SIZE) {
       return NextResponse.json({ error: "Fichier trop volumineux (max 5 Mo)" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const key = `assets/${assetId}/${randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    const filename = `${Date.now()}-${randomBytes(6).toString("hex")}.${ext}`;
 
-    const s3 = createS3();
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-      })
-    );
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(join(UPLOAD_DIR, filename), buffer);
 
-    const url = `${process.env.CLOUDFLARE_R2_PUBLIC_DEV_URL}/${key}`;
+    const url = `/uploads/assets/${filename}`;
 
     const maxOrder = await db.assetPhoto.findFirst({
       where: { assetId },
@@ -74,30 +70,32 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: { assetId, url, order: (maxOrder?.order ?? -1) + 1 },
     });
 
-    return NextResponse.json(photo, { status: 201 });
+    return NextResponse.json({ id: photo.id, url }, { status: 201 });
   } catch (error) {
     console.error("POST /api/v1/assets/[id]/photos", error);
-    return NextResponse.json({ error: "Échec de l'upload" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
     const userFromDb = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { organizationId: true, role: true },
+      select: { organizationId: true },
     });
     if (!userFromDb?.organizationId) {
-      return NextResponse.json({ error: "No organization" }, { status: 403 });
+      return NextResponse.json({ error: "Aucune organisation" }, { status: 403 });
     }
-    const organizationId = userFromDb.organizationId;
-    const { id: assetId } = await params;
 
-    const asset = await db.asset.findFirst({ where: { id: assetId, organizationId } });
-    if (!asset) return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+    const { id: assetId } = await params;
+    const asset = await db.asset.findFirst({
+      where: { id: assetId, organizationId: userFromDb.organizationId },
+      select: { id: true },
+    });
+    if (!asset) return NextResponse.json({ error: "Asset introuvable" }, { status: 404 });
 
     const { searchParams } = new URL(req.url);
     const photoId = searchParams.get("photoId");
@@ -106,23 +104,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const photo = await db.assetPhoto.findFirst({ where: { id: photoId, assetId } });
     if (!photo) return NextResponse.json({ error: "Photo non trouvée" }, { status: 404 });
 
-    const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_DEV_URL ?? "";
-    const key = photo.url.startsWith(baseUrl + "/")
-      ? photo.url.slice(baseUrl.length + 1)
-      : null;
-
-    if (key) {
-      try {
-        const s3 = createS3();
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
-            Key: key,
-          })
-        );
-      } catch {
-        // Continue even if R2 delete fails
-      }
+    // Delete local file (best-effort)
+    if (photo.url.startsWith("/uploads/assets/")) {
+      const filepath = join(process.cwd(), "public", photo.url);
+      await unlink(filepath).catch(() => {});
     }
 
     await db.assetPhoto.delete({ where: { id: photoId } });
@@ -130,6 +115,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/v1/assets/[id]/photos", error);
-    return NextResponse.json({ error: "Échec de la suppression" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }

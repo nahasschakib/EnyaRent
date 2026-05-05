@@ -270,12 +270,13 @@ model Asset {
 }
 
 model AssetPhoto {
-  id      String @id @default(cuid())
-  assetId String
-  url     String
-  order   Int    @default(0)
+  id        String   @id @default(cuid())
+  assetId   String
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
 
-  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 }
 
 model AvailabilityBlock {
