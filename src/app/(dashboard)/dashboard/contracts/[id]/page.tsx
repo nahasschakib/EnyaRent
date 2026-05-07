@@ -45,12 +45,51 @@ const fmt = (d: string) =>
     year: "numeric",
   });
 
+function dataURLtoBlob(dataUrl: string): Blob {
+  const [header, data] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "application/pdf";
+  const binary = atob(data);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    array[i] = binary.charCodeAt(i);
+  }
+  return new Blob([array], { type: mime });
+}
+
+function openPdfUrl(url: string) {
+  if (url.startsWith("data:")) {
+    const blob = dataURLtoBlob(url);
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank");
+  } else {
+    window.open(url, "_blank");
+  }
+}
+
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [showInspForm, setShowInspForm] = useState(false);
   const [inspType, setInspType] = useState<"ENTRY" | "EXIT">("ENTRY");
   const [inspNotes, setInspNotes] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setGenerating(true);
+      const res = await fetch(`/api/v1/contracts/${id}/pdf`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(body.detail ?? body.error ?? res.statusText);
+      }
+      const { pdfUrl: url } = await res.json();
+      openPdfUrl(url);
+    } catch (err) {
+      console.error("Erreur génération PDF:", err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const { data: contract, isLoading } = useQuery({
     queryKey: ["contract", id],
@@ -180,28 +219,47 @@ export default function ContractDetailPage() {
                 )}
               </h2>
               {pdfUrl && (
-                <a
-                  href={pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  onClick={() => openPdfUrl(pdfUrl)}
                   className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-700 font-medium transition-colors"
                 >
                   <Download size={13} /> Télécharger
-                </a>
+                </button>
               )}
             </div>
 
-            {pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                className="w-full h-[640px] bg-slate-50"
-                title="Aperçu du contrat"
-              />
+            {contract.pdfUrl ? (
+              contract.pdfUrl.startsWith("data:") ? (
+                <div className="flex flex-col items-center gap-3 py-20 text-slate-400">
+                  <FileText size={36} className="text-slate-300" />
+                  <p className="text-sm text-slate-500">PDF généré</p>
+                  <button
+                    onClick={() => openPdfUrl(contract.pdfUrl)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Download size={14} />
+                    Ouvrir le PDF
+                  </button>
+                </div>
+              ) : (
+                <iframe
+                  src={contract.pdfUrl}
+                  className="w-full h-[640px] bg-slate-50"
+                  title="Aperçu du contrat"
+                />
+              )
             ) : (
-              <div className="flex flex-col items-center gap-2 py-20 text-slate-400">
+              <div className="flex flex-col items-center gap-3 py-20 text-slate-400">
                 <FileText size={36} className="text-slate-300" />
-                <p className="text-sm">PDF non disponible</p>
-                <p className="text-xs text-slate-400">Le PDF sera généré à la création du contrat</p>
+                <p className="text-sm">PDF non généré</p>
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={generating}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Download size={14} />
+                  {generating ? "⏳ Génération..." : "Générer le PDF"}
+                </button>
               </div>
             )}
           </div>
@@ -358,17 +416,14 @@ export default function ContractDetailPage() {
                 </div>
               )}
 
-              {pdfUrl && (
-                <a
-                  href={pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors"
-                >
-                  <Download size={14} />
-                  {contract.signedPdfUrl ? "Télécharger (signé)" : "Télécharger le PDF"}
-                </a>
-              )}
+              <button
+                onClick={handleDownloadPdf}
+                disabled={generating}
+                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Download size={14} />
+                {generating ? "⏳ Génération..." : (contract.signedPdfUrl ? "Télécharger (signé)" : "Télécharger le PDF")}
+              </button>
 
               {contract.status !== "ARCHIVED" && (
                 <button
