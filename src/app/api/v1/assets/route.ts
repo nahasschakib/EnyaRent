@@ -1,37 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
 import { z } from "zod";
+import { guard } from "@/lib/authz";
 
 type Sector = "REAL_ESTATE" | "VEHICLE" | "HOSPITALITY" | "EQUIPMENT";
 type AssetStatus = "AVAILABLE" | "RESERVED" | "MAINTENANCE" | "OUT_OF_SERVICE";
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-// ─── Helper : récupérer l'org du user connecté ───────────────────────────────
-// Better Auth ne met pas organizationId dans session.user par défaut.
-// On le lit depuis la DB à chaque appel (mis en cache par Prisma connection pool).
-
-async function getOrgId(userId: string): Promise<string | null> {
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { organizationId: true },
-  });
-  return user?.organizationId ?? null;
-}
 
 // ─── Schéma Zod ───────────────────────────────────────────────────────────────
-
-// Valide les structures JSON imbriquées (Zod v4 : z.record requiert 2 args)
-const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(z.unknown()),
-    z.record(z.string(), z.unknown()),
-  ])
-);
 
 const createAssetSchema = z.object({
   name: z.string().min(2),
@@ -75,8 +50,7 @@ function validateSectorData(data: AssetInput): string[] {
         errors.push("La surface est requise pour un bien immobilier");
       if (!meta.rooms || Number(meta.rooms) <= 0)
         errors.push("Le nombre de pièces est requis");
-      if (!meta.leaseType)
-        errors.push("Le type de bail est requis");
+      if (!meta.leaseType) errors.push("Le type de bail est requis");
       if (!data.pricePerMonth || data.pricePerMonth <= 0)
         errors.push("Le loyer mensuel est requis pour un bien immobilier");
       break;
@@ -107,30 +81,26 @@ function validateSectorData(data: AssetInput): string[] {
       if (!data.pricePerDay || data.pricePerDay <= 0)
         errors.push("Le prix journalier est requis pour les équipements");
       if (!data.deposit || data.deposit <= 0)
-        errors.push("⚠️ Une caution est fortement recommandée pour les équipements");
+        errors.push("Une caution est fortement recommandée pour les équipements");
       break;
   }
 
   return errors;
 }
 
+const SECTOR_NAMES: Record<Sector, string> = {
+  REAL_ESTATE: "Immobilier",
+  VEHICLE: "Véhicule",
+  HOSPITALITY: "Hôtellerie",
+  EQUIPMENT: "Équipement",
+};
+
 // ─── GET /api/v1/assets ───────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
-    if (!session) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    // Fix 403 : lire l'orgId depuis la DB, pas depuis session.user
-    const orgId = await getOrgId(session.user.id);
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "Aucune organisation associée à ce compte" },
-        { status: 403 }
-      );
-    }
+    const g = await guard(req, "asset:read");
+    if (!g.ok) return g.response;
 
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
@@ -156,7 +126,7 @@ export async function GET(req: NextRequest) {
         : undefined;
 
     const where = {
-      organizationId: orgId,
+      organizationId: g.organizationId,
       ...(sector && { assetType: { sector: sector as Sector } }),
       ...(status && { status: status as AssetStatus }),
       ...(search && {
@@ -201,27 +171,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
-    if (!session) {
-      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const allowedRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
-    if (!allowedRoles.includes(session.user.role)) {
-      return NextResponse.json(
-        { error: "Permission insuffisante" },
-        { status: 403 }
-      );
-    }
-
-    // Fix 403 : même pattern que GET
-    const orgId = await getOrgId(session.user.id);
-    if (!orgId) {
-      return NextResponse.json(
-        { error: "Aucune organisation associée à ce compte" },
-        { status: 403 }
-      );
-    }
+    const g = await guard(req, "asset:create");
+    if (!g.ok) return g.response;
 
     const body = await req.json();
     const parsed = createAssetSchema.safeParse(body);
@@ -235,30 +186,6 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
-   const sectorNames: Record<string, string> = {
-  REAL_ESTATE: "Immobilier",
-  VEHICLE: "Véhicule", 
-  HOSPITALITY: "Hôtellerie",
-  EQUIPMENT: "Équipement",
-};
-
-let assetType = data.assetTypeId
-  ? await db.assetType.findFirst({ where: { id: data.assetTypeId, organizationId: orgId } })
-  : null;
-
-if (!assetType) {
-  // Chercher un type existant pour ce secteur, sinon en créer un
-  assetType = await db.assetType.findFirst({
-    where: { organizationId: orgId, sector: data.sector },
-  }) ?? await db.assetType.create({
-    data: {
-      organizationId: orgId,
-      name: sectorNames[data.sector] ?? data.sector,
-      sector: data.sector,
-    },
-  });
-}
-
     const sectorErrors = validateSectorData(data);
     if (sectorErrors.length > 0) {
       return NextResponse.json(
@@ -267,9 +194,30 @@ if (!assetType) {
       );
     }
 
+    // Résolution du type d'asset, toujours borné à l'organisation du user
+    let assetType = data.assetTypeId
+      ? await db.assetType.findFirst({
+          where: { id: data.assetTypeId, organizationId: g.organizationId },
+        })
+      : null;
+
+    if (!assetType) {
+      assetType =
+        (await db.assetType.findFirst({
+          where: { organizationId: g.organizationId, sector: data.sector },
+        })) ??
+        (await db.assetType.create({
+          data: {
+            organizationId: g.organizationId,
+            name: SECTOR_NAMES[data.sector],
+            sector: data.sector,
+          },
+        }));
+    }
+
     const asset = await db.asset.create({
       data: {
-        organizationId: orgId,
+        organizationId: g.organizationId,
         name: data.name,
         description: data.description,
         assetTypeId: assetType.id,
@@ -286,7 +234,6 @@ if (!assetType) {
         modele: data.modele,
         annee: data.annee,
         couleur: data.couleur,
-        // Fix metadata : cast explicite en Prisma.JsonValue
         metadata: JSON.parse(JSON.stringify(data.metadata)),
         isPublished: false,
       },
@@ -295,12 +242,14 @@ if (!assetType) {
 
     await db.auditLog.create({
       data: {
-        organizationId: orgId,
-        userId: session.user.id,
+        organizationId: g.organizationId,
+        userId: g.userId,
         action: "CREATE_ASSET",
         entity: "Asset",
         entityId: asset.id,
-        newValue: JSON.parse(JSON.stringify({ name: asset.name, sector: assetType.sector })),
+        newValue: JSON.parse(
+          JSON.stringify({ name: asset.name, sector: assetType.sector })
+        ),
         ip: req.headers.get("x-forwarded-for") ?? undefined,
       },
     });

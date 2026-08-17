@@ -1,4 +1,4 @@
-// src/lib/pdf/pdf-styles.ts
+
 // Styles partagés @react-pdf/renderer — brand EnyaRent
 
 import { StyleSheet, Font } from "@react-pdf/renderer";
@@ -236,14 +236,50 @@ export const sharedStyles = StyleSheet.create({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return "—";
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d
+    .toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    })
+    .replace(/[\u202F\u00A0]/g, " ");
 }
 
-export function formatAmount(amount: number, currency = "MAD"): string {
-  return `${amount.toLocaleString("fr-FR")} ${currency}`;
+export function formatAmount(
+  amount: number | string | null | undefined,
+  currency = "MAD"
+): string {
+  if (amount === null || amount === undefined) return "—";
+
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+
+  const formatted = new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
+    .format(n)
+    // WinAnsi (polices PDF par défaut) ne gère pas U+202F / U+00A0 :
+    // l'encodeur ne garde que l'octet bas, ce qui produit "/" à l'écran.
+    .replace(/[\u202F\u00A0]/g, " ");
+
+  return `${formatted} ${currency}`;
+}
+
+export function formatNumber(
+  value: number | string | null | undefined
+): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return new Intl.NumberFormat("fr-FR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
+    .format(n)
+    .replace(/[\u202F\u00A0]/g, " ");
 }

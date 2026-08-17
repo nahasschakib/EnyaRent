@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { FileText, Check, Ban, ArrowLeft, CreditCard } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
+import { VehicleReturnForm } from "@/components/bookings/VehicleReturnForm";
+import { HotelCheckinForm } from "@/components/bookings/HotelCheckinForm";
+import { EquipmentInspectionForm } from "@/components/bookings/EquipmentInspectionForm";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING:   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
@@ -40,6 +45,7 @@ export default function BookingDetailPage() {
   const params = useParams();
   const id     = params.id as string;
   const qc     = useQueryClient();
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   const { data: booking, isLoading } = useQuery({
     queryKey: ["booking", id],
@@ -253,12 +259,61 @@ export default function BookingDetailPage() {
           )}
         </div>
 
+        {/* Actions sectorielles */}
+        {(() => {
+          const sector = booking.asset?.assetType?.sector;
+          const meta = (booking.asset?.metadata ?? {}) as Record<string, unknown>;
+          const hasAction =
+            (sector === "VEHICLE" && booking.status === "ACTIVE") ||
+            (sector === "HOSPITALITY" && booking.status === "CONFIRMED") ||
+            (sector === "EQUIPMENT" && ["CONFIRMED", "ACTIVE"].includes(booking.status)) ||
+            sector === "REAL_ESTATE";
+          if (!hasAction) return null;
+          return (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Actions sectorielles</h3>
+              <div className="flex flex-wrap gap-2">
+                {sector === "VEHICLE" && booking.status === "ACTIVE" && (
+                  <button onClick={() => setActiveModal("vehicle-return")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    🚗 Retour km
+                  </button>
+                )}
+                {sector === "HOSPITALITY" && booking.status === "CONFIRMED" && (
+                  <button onClick={() => setActiveModal("hotel-checkin")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    🏨 Check-in
+                  </button>
+                )}
+                {sector === "EQUIPMENT" && booking.status === "CONFIRMED" && (
+                  <button onClick={() => setActiveModal("equipment-entry")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    📋 État d&apos;entrée
+                  </button>
+                )}
+                {sector === "EQUIPMENT" && booking.status === "ACTIVE" && (
+                  <button onClick={() => setActiveModal("equipment-exit")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-sm font-medium rounded-lg transition-colors">
+                    🔍 État de sortie
+                  </button>
+                )}
+                {sector === "REAL_ESTATE" && (
+                  <Link href={`/dashboard/bookings/${id}/schedule`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    📅 Planifier
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Paiements */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
           <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Paiements</h3>
           {booking.payments?.length > 0 ? (
             <div className="space-y-2">
-              {booking.payments.map((p: any) => (
+              {booking.payments.map((p: unknown) => (
                 <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <div className="flex items-center gap-3">
                     <CreditCard size={15} className="text-slate-400" />
@@ -289,6 +344,56 @@ export default function BookingDetailPage() {
         )}
 
       </div>
+
+      {/* Modals sectorielles */}
+      {activeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setActiveModal(null); }}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {activeModal === "vehicle-return" && "Retour véhicule — Kilométrage"}
+                {activeModal === "hotel-checkin" && "Enregistrement check-in"}
+                {activeModal === "equipment-entry" && "État des lieux d'entrée"}
+                {activeModal === "equipment-exit" && "État des lieux de sortie"}
+              </h2>
+              <button onClick={() => setActiveModal(null)}
+                className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-6">
+              {activeModal === "vehicle-return" && (
+                <VehicleReturnForm
+                  bookingId={id}
+                  kmDepart={Number((booking.asset?.metadata as Record<string, unknown>)?.mileage ?? 0)}
+                  kmForfait={Number((booking.asset?.metadata as Record<string, unknown>)?.kmForfait ?? 200)}
+                  extraKmRate={Number((booking.asset?.metadata as Record<string, unknown>)?.extraKmRate ?? 0)}
+                  onSuccess={() => { toast.success("Retour enregistré"); setActiveModal(null); }}
+                />
+              )}
+              {activeModal === "hotel-checkin" && (
+                <HotelCheckinForm
+                  bookingId={id}
+                  checkinTime={String((booking.asset?.metadata as Record<string, unknown>)?.checkinTime ?? "14:00")}
+                  checkoutTime={String((booking.asset?.metadata as Record<string, unknown>)?.checkoutTime ?? "11:00")}
+                  pricePerNight={Number(booking.asset?.pricePerNight ?? 0)}
+                  nights={Math.max(1, Math.round((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000))}
+                  onSuccess={() => { toast.success("Check-in enregistré"); setActiveModal(null); }}
+                />
+              )}
+              {(activeModal === "equipment-entry" || activeModal === "equipment-exit") && (
+                <EquipmentInspectionForm
+                  bookingId={id}
+                  type={activeModal === "equipment-entry" ? "ENTRY" : "EXIT"}
+                  replacementValue={Number((booking.asset?.metadata as Record<string, unknown>)?.replacementValue ?? 0)}
+                  depositAmount={Number(booking.depositAmount ?? 0)}
+                  entryCondition={String((booking.asset?.metadata as Record<string, unknown>)?.condition ?? "GOOD")}
+                  onSuccess={() => { toast.success("État des lieux enregistré"); setActiveModal(null); }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

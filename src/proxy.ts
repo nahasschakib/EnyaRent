@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+
 const PROTECTED_PATHS = ["/dashboard", "/mon-espace"];
 const SESSION_COOKIE = "better-auth.session_token";
 
 export function proxy(request: NextRequest) {
+  console.log("[PROXY] exécuté sur", request.nextUrl.pathname);
   const { pathname } = request.nextUrl;
 
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));

@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
@@ -62,7 +63,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         timezone:      "Africa/Casablanca",
       }),
     });
-    if (!srRes.ok) throw new Error("Échec création demande YouSign");
+    if (!srRes.ok) {
+  const detail = await srRes.text();
+  console.error("[YouSign] création demande", srRes.status, detail);
+  throw new Error(`Échec création demande YouSign (${srRes.status}): ${detail}`);
+}
     const signatureRequest = await srRes.json();
 
     // 2. Envoyer le PDF généré directement à YouSign
@@ -132,7 +137,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         action:   "SEND_SIGNATURE",
         entity:   "Contract",
         entityId: id,
-        newValue: { yousignRequestId: signatureRequest.id } as any,
+        newValue: { yousignRequestId: signatureRequest.id } as Record<string, unknown>,
       },
     });
 

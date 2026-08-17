@@ -140,7 +140,7 @@ export function ContratVehiculePDF({ data }: { data: ContratVehiculeData }) {
           </View>
           <View style={sharedStyles.clauseBox}>
             <Text style={sharedStyles.clauseTitle}>Carburant & kilométrage</Text>
-            <Text style={sharedStyles.clauseText}>Le véhicule est restitué avec le même niveau de carburant quApos;à la prise en charge. Tout kilomètre dépassant le forfait est facturé au tarif de {formatAmount(data.conditions.prixKmSup, data.conditions.currency)} / km.</Text>
+            <Text style={sharedStyles.clauseText}>Le véhicule est restitué avec le même niveau de carburant qu&apos;à la prise en charge. Tout kilomètre dépassant le forfait est facturé au tarif de {formatAmount(data.conditions.prixKmSup, data.conditions.currency)} / km.</Text>
           </View>
         </View>
 
